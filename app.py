@@ -1,37 +1,51 @@
-from flask import Flask, render_template, request
+from flask import Flask, request, send_from_directory
 import pandas as pd
+import os
 
 app = Flask(__name__)
 
 EXCEL_FILE = "leads.xlsx"
 
-@app.route("/", methods=["GET", "POST"])
+# Création du fichier Excel s'il n'existe pas
+if not os.path.exists(EXCEL_FILE):
+    df = pd.DataFrame(columns=[
+        "Nom", "Prénom", "Email", "Téléphone", "Code Postal",
+        "Endroit", "Surface (m2)", "Détails"
+    ])
+    df.to_excel(EXCEL_FILE, index=False)
+
+@app.route('/')
 def home():
-    message = ""
-    if request.method == "POST":
-        nom = request.form.get("nom")
-        prenom = request.form.get("prenom")
-        telephone = request.form.get("telephone")
-        email = request.form.get("email")
-        code_postal = request.form.get("code_postal")
-        endroit = request.form.get("endroit")
-        surface = request.form.get("surface")
+    return send_from_directory('.', 'leads.html')
 
-        # Sauvegarde dans Excel
-        try:
-            df = pd.DataFrame([[nom, prenom, telephone, email, code_postal, endroit, surface]],
-                              columns=["Nom", "Prénom", "Téléphone", "Email", "Code Postal", "Endroit", "Surface"])
-            try:
-                existing_df = pd.read_excel(EXCEL_FILE)
-                df = pd.concat([existing_df, df], ignore_index=True)
-            except FileNotFoundError:
-                pass
-            df.to_excel(EXCEL_FILE, index=False)
-            message = "Formulaire envoyé avec succès !"
-        except Exception as e:
-            message = f"Erreur : {e}"
+@app.route('/submit', methods=['POST'])
+def submit():
+    nom = request.form.get("nom")
+    prenom = request.form.get("prenom")
+    email = request.form.get("email")
+    tel = request.form.get("tel")
+    postal = request.form.get("postal")
+    endroit = request.form.get("endroit")
+    surface = request.form.get("surface")
+    details = request.form.get("details")
 
-    return render_template("formulaire.html", message=message)
+    df = pd.read_excel(EXCEL_FILE)
+
+    new_row = {
+        "Nom": nom,
+        "Prénom": prenom,
+        "Email": email,
+        "Téléphone": tel,
+        "Code Postal": postal,
+        "Endroit": endroit,
+        "Surface (m2)": surface,
+        "Détails": details
+    }
+
+    df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
+    df.to_excel(EXCEL_FILE, index=False)
+
+    return "<h2>Merci ! Nous vous contacterons très vite pour votre installation LED. 💡</h2>"
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
+    app.run(debug=True)
